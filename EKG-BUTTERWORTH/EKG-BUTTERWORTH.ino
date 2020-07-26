@@ -37,8 +37,8 @@ const char* hardwareTarget = "hardware1";
 bool stateSend = false; //to check if MQTT broker wanna receive data or not.
 bool turnMQTT = false; //to Deactivate MQTT Transmit
 
-//access point setting 
-const char* PASS="biospin12345";
+//access point setting
+const char* PASS = "biospin12345";
 WiFiClient espclient;
 PubSubClient mqttHardware(espclient);
 
@@ -333,7 +333,7 @@ void setup() {
 
 
 
-  if (!wifiManager.autoConnect(hardwareTarget,PASS)) {
+  if (!wifiManager.autoConnect(hardwareTarget, PASS)) {
 
     delay(3000);
     //reset and try again, or maybe put it to deep sleep
@@ -347,7 +347,7 @@ void setup() {
     strcpy(mqtt_server, custom_mqtt_server.getValue());
   }
   //to avoid pointer char compare integer
-  turnMQTT = !(mode_mqtt.getValue()!="0");
+  turnMQTT = !(mode_mqtt.getValue() != "0");
 
   //save the custom parameters to FS
   if (shouldSaveConfig) {
@@ -401,7 +401,7 @@ void setup() {
 
 void loop() {
 
- //bug founded : turnMQTT still 1 although set to 0
+  //bug founded : turnMQTT still 1 although set to 0
   if (turnMQTT == true) {
 
     if (!mqttHardware.connected()) {
@@ -450,7 +450,6 @@ void loop() {
       filteredSignal = BandPassFilter(filteredSignal);
       filteredSignal = LowPassFilter(filteredSignal);
 
-
     }
     if (millis() > time_now3 + periode_mqtt && stateSend == 1) {
       time_now3 = millis();
@@ -463,7 +462,7 @@ void loop() {
 
       if (filteredSignal != yLastData) {
         // do differentiation and this will be the main parameter to do Peak to Peak detection
-        signalDiff = differensial( filteredSignal - yLastData);
+        //        signalDiff = differensial( filteredSignal - yLastData); found some bugs
 
         yLastData = filteredSignal;
 
@@ -482,8 +481,12 @@ void loop() {
 
       // update threshold
       if (firstTime == true) {
-        upperThreshold = 0.5 * 2.03;
-        lowerThreshold = 0.10 * -2.40;
+        //mysterious problem, threshold changed (because electrode?)
+        //        upperThreshold = 0.5 * 2.03;
+        //        lowerThreshold = 0.10 * -2.40;
+
+        upperThreshold = 0.5 * 410.03;
+        lowerThreshold = 0.10 * -410.40;
 
       } else {
         upperThreshold = upperThreshold + (0.155 * (upperThreshold - lowerThreshold));
@@ -493,21 +496,21 @@ void loop() {
     }
 
     //detect R signal
-    if (signalDiff > upperThreshold) {
+    if (filteredSignal > upperThreshold) {
       if (qrsDone) {
-
         int bufferBPM  = millis() - lastTimeInterval;
         bufferBPM = getBPM(bufferBPM);
         qrsDone = false;
         BPMTiming = false;
         if (bufferBPM < 200) {
-          String temp = "BPM : " + String(BPMHeart);
-          Serial.println(temp);
           //update oled to display BPM
-          oled.setCursor(100, 10);
-          oled.println(temp);
-          oled.display();
 
+          oled.setCursor(100, 10);
+          oled.println(bufferBPM);
+          oled.setCursor(100, 20);
+          oled.println("BPM");
+          oled.display();
+          
           //publish to MQTT
           // publishECGBPM( BPMHeart);
         }
@@ -522,7 +525,7 @@ void loop() {
 
     }
 
-    if ((signalDiff < lowerThreshold) && (BPMTiming)) {
+    if ((filteredSignal < lowerThreshold) && (BPMTiming)) {
       qrsDone = true;
     }
 
